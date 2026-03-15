@@ -1,0 +1,130 @@
+{
+	"name": "adls_to_adls",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "BinarySource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"deleteFilesAfterCompletion": false
+						},
+						"formatSettings": {
+							"type": "BinaryReadSettings"
+						}
+					},
+					"sink": {
+						"type": "BinarySink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"maxConcurrentConnections": 1,
+							"copyBehavior": "PreserveHierarchy"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_generic_dynamic",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().parameters.source_container",
+								"type": "Expression"
+							},
+							"folder_path": {
+								"value": "@concat(\t\t\n    pipeline().parameters.source_folder_path, \t\t\n     pipeline().parameters.source_folder_suffix)\t\t\n",
+								"type": "Expression"
+							},
+							"file_name": {
+								"value": "@concat(\t\t\n pipeline().parameters.source_file_name, \t\n pipeline().parameters.source_file_suffix) \t\n",
+								"type": "Expression"
+							},
+							"storage_account": {
+								"value": "@pipeline().parameters.storage_account",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_generic_binary_strgdataroleacademy",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().parameters.target_container",
+								"type": "Expression"
+							},
+							"folder_path": {
+								"value": "@concat(pipeline().parameters.target_folder_path,pipeline().parameters.target_folder_suffix)",
+								"type": "Expression"
+							},
+							"file_name": {
+								"value": "@concat(\n    pipeline().parameters.target_file_name,   \n    pipeline().parameters.target_file_suffix)  ",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"ParentRunId": {
+				"type": "int"
+			},
+			"source_container": {
+				"type": "string"
+			},
+			"source_folder_path": {
+				"type": "string"
+			},
+			"source_file_name": {
+				"type": "string"
+			},
+			"target_container": {
+				"type": "string"
+			},
+			"target_folder_path": {
+				"type": "string"
+			},
+			"target_file_name": {
+				"type": "string"
+			},
+			"source_folder_suffix": {
+				"type": "string"
+			},
+			"source_file_suffix": {
+				"type": "string"
+			},
+			"target_folder_suffix": {
+				"type": "string"
+			},
+			"target_file_suffix": {
+				"type": "string"
+			},
+			"storage_account": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "etl core/workers"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-03-11T21:23:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

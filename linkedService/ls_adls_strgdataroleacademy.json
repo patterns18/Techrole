@@ -1,0 +1,11 @@
+{
+	"name": "ls_adls_strgdataroleacademy",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://strgdataroleacademy.dfs.core.windows.net/"
+		}
+	}
+}

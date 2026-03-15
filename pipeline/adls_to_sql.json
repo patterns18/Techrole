@@ -1,0 +1,128 @@
+{
+	"name": "adls_to_sql",
+	"properties": {
+		"activities": [
+			{
+				"name": "adls to sql",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"additionalColumns": [
+							{
+								"name": "source_filename",
+								"value": "$$FILEPATH"
+							}
+						],
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": {
+							"value": "@if(\n    empty(pipeline().parameters.precopy_script), \n    '', \n    pipeline().parameters.precopy_script\n)",
+							"type": "Expression"
+						},
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_generic_binary_strgdataroleacademy_csv",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().parameters.source_container",
+								"type": "Expression"
+							},
+							"folder_path": {
+								"value": "@concat(pipeline().parameters.source_folder_path,pipeline().parameters.source_folder_suffix,'\\',pipeline().parameters.source_file_name)",
+								"type": "Expression"
+							},
+							"folder_name": {
+								"value": "@concat(\n    pipeline().parameters.source_file_name,   \n    pipeline().parameters.source_file_suffix)  ",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_sql_db_dataroleacademy",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": {
+								"value": "@pipeline().parameters.schema_name",
+								"type": "Expression"
+							},
+							"table": {
+								"value": "@pipeline().parameters.table_name",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"ParentRunId": {
+				"type": "int"
+			},
+			"source_container": {
+				"type": "string"
+			},
+			"source_folder_path": {
+				"type": "string"
+			},
+			"source_file_name": {
+				"type": "string"
+			},
+			"source_folder_suffix": {
+				"type": "string"
+			},
+			"source_file_suffix": {
+				"type": "string"
+			},
+			"schema_name": {
+				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
+			},
+			"precopy_script": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "etl core/workers"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-03-03T22:11:19Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
