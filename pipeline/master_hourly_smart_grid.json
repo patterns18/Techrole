@@ -38,12 +38,6 @@
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
-									"activity": "Bronze to Staging",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								},
-								{
 									"activity": "Staging_to_Fact",
 									"dependencyConditions": [
 										"Succeeded"
@@ -96,8 +90,6 @@
 							"name": "Landing to Bronze",
 							"description": "",
 							"type": "ExecutePipeline",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Set variable1",
@@ -141,8 +133,6 @@
 						{
 							"name": "Bronze to Staging",
 							"type": "ExecutePipeline",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [
 								{
 									"activity": "Landing to Bronze",
@@ -167,16 +157,12 @@
 										"type": "Expression"
 									},
 									"SourceFolderSuffix": {
-										"value": "@pipeline().parameters.folder_path",
+										"value": "@variables('BusinessDate')",
 										"type": "Expression"
 									},
-									"TargetFolderSuffix": {
-										"value": "@concat(variables('BusinessDate'),'/','meter_readings')",
-										"type": "Expression"
-									},
-									"GroupName": "SmartGrid_Bronze_Hourly",
+									"GroupName": "SmartGrid_Bronze_Staging_load_Hour",
 									"SourceFileSuffix": {
-										"value": "@pipeline().parameters.file_name",
+										"value": "@concat('meter_readings','/',pipeline().parameters.file_name)",
 										"type": "Expression"
 									},
 									"TypeName": "adls_to_sql"
@@ -188,7 +174,7 @@
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
-									"activity": "start_load_job",
+									"activity": "Bronze to Staging",
 									"dependencyConditions": [
 										"Succeeded"
 									]
