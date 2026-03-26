@@ -197,6 +197,32 @@
 									}
 								}
 							]
+						},
+						{
+							"value": "process_dim_fact",
+							"activities": [
+								{
+									"name": "sql_dim_and_fact_usp",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "sql_dim_and_fact_usp",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"ParentRunId": "@pipeline().parameters.ParentRunId",
+											"StoredProcedureName": "@pipeline().parameters.AssetItem.stored_procedure",
+											"Schema": "@pipeline().parameters.AssetItem.target_schema"
+										}
+									}
+								}
+							]
 						}
 					]
 				}

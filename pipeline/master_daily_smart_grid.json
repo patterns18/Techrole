@@ -25,6 +25,8 @@
 			{
 				"name": "Set variable1",
 				"type": "SetVariable",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "start_load_job",
@@ -49,6 +51,8 @@
 			{
 				"name": "Landing to Bronze",
 				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Set variable1",
@@ -92,6 +96,8 @@
 			{
 				"name": "Bronze to SQL",
 				"type": "ExecutePipeline",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Landing to Bronze",
@@ -133,7 +139,7 @@
 				"type": "ExecutePipeline",
 				"dependsOn": [
 					{
-						"activity": "Bronze to SQL",
+						"activity": "Staging_to_Dimension",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -154,6 +160,36 @@
 							"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
 							"type": "Expression"
 						}
+					}
+				}
+			},
+			{
+				"name": "Staging_to_Dimension",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Bronze to SQL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "01 - core_dispatcher",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"ParentRunId": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+						"SourceFolderSuffix": "@variables('BusinessDate')",
+						"TargetFolderSuffix": "@variables('BusinessDate')",
+						"GroupName": "SmartGrid_Procedure_Dimensions",
+						"TypeName": "process_dim_fact"
 					}
 				}
 			}
