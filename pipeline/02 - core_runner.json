@@ -150,11 +150,11 @@
 												"type": "Expression"
 											},
 											"source_folder_suffix": {
-												"value": "@pipeline().parameters.SourceFolderSuffix",
+												"value": "@concat(pipeline().parameters.SourceFolderSuffix,'/',pipeline().parameters.AssetItem.file_name)",
 												"type": "Expression"
 											},
 											"source_file_suffix": {
-												"value": "@pipeline().parameters.AssetItem.file_type",
+												"value": "@concat(pipeline().parameters.SourceFileSuffix,pipeline().parameters.AssetItem.file_type)",
 												"type": "Expression"
 											},
 											"schema_name": {
