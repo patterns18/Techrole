@@ -61,10 +61,10 @@
 								"type": "Expression"
 							},
 							"folder_path": {
-								"value": "@concat(pipeline().parameters.source_folder_path,pipeline().parameters.source_folder_suffix,'\\',pipeline().parameters.source_file_name)",
+								"value": "@concat(pipeline().parameters.source_folder_path,'/',pipeline().parameters.source_folder_suffix)",
 								"type": "Expression"
 							},
-							"folder_name": {
+							"file_name": {
 								"value": "@concat(\n    pipeline().parameters.source_file_name,   \n    pipeline().parameters.source_file_suffix)  ",
 								"type": "Expression"
 							}
