@@ -1,0 +1,42 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "olaniyiadfclassv1"
+		},
+		"ls_adls_smartgrid_accountKey": {
+			"value": ""
+		},
+		"ls_adls_dynamic_properties_typeProperties_url": {
+			"value": "https://@{linkedService().storageAccount}.dfs.core.windows.net"
+		},
+		"ls_adls_smartgrid_properties_typeProperties_url": {
+			"value": "https://smartgriddata.dfs.core.windows.net/"
+		},
+		"ls_adls_strgdataroleacademy_properties_typeProperties_url": {
+			"value": "https://strgdataroleacademy.dfs.core.windows.net/"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_server": {
+			"value": "dararoleacademy.database.windows.net"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_database": {
+			"value": "dataroleacademy"
+		},
+		"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_file_name": {
+			"value": "@triggerBody().fileName"
+		},
+		"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_folder_path": {
+			"value": "@triggerBody().folderPath"
+		},
+		"trigger_smart_hour_properties_typeProperties_scope": {
+			"value": "/subscriptions/2dcb1819-6ea8-4613-9032-0503bdcab14f/resourceGroups/rg-smartmeter/providers/Microsoft.Storage/storageAccounts/smartgriddata"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

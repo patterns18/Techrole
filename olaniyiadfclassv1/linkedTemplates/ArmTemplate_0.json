@@ -1,0 +1,2082 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "olaniyiadfclassv1"
+		},
+		"ls_adls_smartgrid_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'ls_adls_smartgrid'"
+		},
+		"ls_adls_dynamic_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://@{linkedService().storageAccount}.dfs.core.windows.net"
+		},
+		"ls_adls_smartgrid_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://smartgriddata.dfs.core.windows.net/"
+		},
+		"ls_adls_strgdataroleacademy_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://strgdataroleacademy.dfs.core.windows.net/"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "dararoleacademy.database.windows.net"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "dataroleacademy"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/default')]",
+			"type": "Microsoft.DataFactory/factories/globalparameters",
+			"apiVersion": "2018-06-01",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_adls_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"parameters": {
+					"storageAccount": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_adls_dynamic_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_adls_smartgrid')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_adls_smartgrid_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('ls_adls_smartgrid_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_adls_strgdataroleacademy')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_adls_strgdataroleacademy_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_sql_dataroleacademy')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('ls_sql_dataroleacademy_properties_typeProperties_server')]",
+					"database": "[parameters('ls_sql_dataroleacademy_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SystemAssignedManagedIdentity"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/end_load_job')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Script1",
+						"type": "Script",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "ls_sql_dataroleacademy",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"parameters": [
+										{
+											"name": "RunId",
+											"type": "Int64",
+											"value": {
+												"value": "@pipeline().parameters.RunId",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "Status",
+											"type": "String",
+											"value": "'Success'",
+											"direction": "Input"
+										},
+										{
+											"name": "ErrorMessage",
+											"type": "String",
+											"value": null,
+											"direction": "Input"
+										}
+									],
+									"type": "Query",
+									"text": "EXEC olaniyi_metadata.usp_end_pipeline_run\n    @RunId = @RunId,\n    @Status =  @Status,\n    @ErrorMessage  = @ErrorMessage ;"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"RunId": {
+						"type": "int"
+					}
+				},
+				"folder": {
+					"name": "etl core/workers"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-02-25T23:47:24Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/sql_dim_and_fact_usp')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Stored procedure1",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": {
+								"value": "@concat(pipeline().parameters.Schema,'.',pipeline().parameters.StoredProcedureName)",
+								"type": "Expression"
+							},
+							"storedProcedureParameters": {
+								"pipelinerunid": {
+									"value": {
+										"value": "@pipeline().parameters.ParentRunId",
+										"type": "Expression"
+									},
+									"type": "Int32"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_sql_dataroleacademy",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentRunId": {
+						"type": "string"
+					},
+					"StoredProcedureName": {
+						"type": "string"
+					},
+					"Schema": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "etl core/workers"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/start_load_job')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Exec usp_start_pipeline_run",
+						"type": "Script",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "ls_sql_dataroleacademy",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"parameters": [
+										{
+											"name": "PipelineName",
+											"type": "String",
+											"value": {
+												"value": "@pipeline().Pipeline",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "FactoryRunId",
+											"type": "String",
+											"value": {
+												"value": "@pipeline().RunId",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "FactoryName",
+											"type": "String",
+											"value": {
+												"value": "@pipeline().DataFactory",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "GroupId",
+											"type": "Int16",
+											"value": {
+												"value": "@if(equals(pipeline().parameters.GroupId, 0), json('null'),\n    pipeline().parameters.GroupId)",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "ParentRunId",
+											"type": "Int64",
+											"value": {
+												"value": "@if(equals(pipeline().parameters.ParentRunId, 0), json('null'),\n    pipeline().parameters.ParentRunId)",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										}
+									],
+									"type": "Query",
+									"text": "DECLARE @NewRunId BIGINT;\n\nEXEC olaniyi_metadata.usp_start_pipeline_run\n\n    @PipelineName =  @PipelineName,\n    @FactoryRunId =  @FactoryRunId,\n    @FactoryName = @FactoryName,\n    @GroupId = @GroupId,\n    @ParentRunId = @ParentRunId,\n    @RunId = @NewRunId OUTPUT;\n\nselect @NewRunId  as RunId  \n"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Exec usp_start_pipeline_run",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "pipelineReturnValue",
+							"value": [
+								{
+									"key": "ReturnRunId",
+									"value": {
+										"type": "Expression",
+										"content": "@activity('Exec usp_start_pipeline_run').output.resultSets[0].rows[0].RunId\n\n"
+									}
+								}
+							],
+							"setSystemVariable": true
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"GroupId": {
+						"type": "int"
+					},
+					"ParentRunId": {
+						"type": "int"
+					}
+				},
+				"folder": {
+					"name": "etl core/workers"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-02-24T18:09:39Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DelimitedText1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_strgdataroleacademy",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "meter_2026-01-02.csv",
+						"folderPath": "landing/2026-01-02",
+						"fileSystem": "landing"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "MeterID",
+						"type": "String"
+					},
+					{
+						"name": "CustomerID",
+						"type": "String"
+					},
+					{
+						"name": "MeterType",
+						"type": "String"
+					},
+					{
+						"name": "InstallationDate",
+						"type": "String"
+					},
+					{
+						"name": "Latitude",
+						"type": "String"
+					},
+					{
+						"name": "Longitude",
+						"type": "String"
+					},
+					{
+						"name": "Status",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_strgdataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_generic_binary_smartgrid_landing')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_smartgrid",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"folder_path": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_smartgrid')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_generic_binary_strgdataroleacademy')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_strgdataroleacademy",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"folder_path": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_strgdataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_generic_binary_strgdataroleacademy_csv')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_strgdataroleacademy",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"folder_path": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_strgdataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_generic_dynamic')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_dynamic",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"storageAccount": {
+							"value": "@dataset().storage_account",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"folder_path": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					},
+					"storage_account": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_dynamic')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_sql_db_dataroleacademy')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_sql_dataroleacademy",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/adls_to_adls')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"deleteFilesAfterCompletion": false
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"maxConcurrentConnections": 1,
+									"copyBehavior": "PreserveHierarchy"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_generic_dynamic",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.source_container",
+										"type": "Expression"
+									},
+									"folder_path": {
+										"value": "@concat(\t\t\n    pipeline().parameters.source_folder_path, \t\t\n     pipeline().parameters.source_folder_suffix)\t\t\n",
+										"type": "Expression"
+									},
+									"file_name": {
+										"value": "@concat(\t\t\n pipeline().parameters.source_file_name, \t\n pipeline().parameters.source_file_suffix) \t\n",
+										"type": "Expression"
+									},
+									"storage_account": {
+										"value": "@pipeline().parameters.storage_account",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_generic_binary_strgdataroleacademy",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.target_container",
+										"type": "Expression"
+									},
+									"folder_path": {
+										"value": "@concat(pipeline().parameters.target_folder_path,pipeline().parameters.target_folder_suffix)",
+										"type": "Expression"
+									},
+									"file_name": {
+										"value": "@concat(\n    pipeline().parameters.target_file_name,   \n    pipeline().parameters.target_file_suffix)  ",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentRunId": {
+						"type": "int"
+					},
+					"source_container": {
+						"type": "string"
+					},
+					"source_folder_path": {
+						"type": "string"
+					},
+					"source_file_name": {
+						"type": "string"
+					},
+					"target_container": {
+						"type": "string"
+					},
+					"target_folder_path": {
+						"type": "string"
+					},
+					"target_file_name": {
+						"type": "string"
+					},
+					"source_folder_suffix": {
+						"type": "string"
+					},
+					"source_file_suffix": {
+						"type": "string"
+					},
+					"target_folder_suffix": {
+						"type": "string"
+					},
+					"target_file_suffix": {
+						"type": "string"
+					},
+					"storage_account": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "etl core/workers"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-11T21:23:13Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_generic_dynamic')]",
+				"[concat(variables('factoryId'), '/datasets/ds_generic_binary_strgdataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/adls_to_sql')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "adls to sql",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"additionalColumns": [
+									{
+										"name": "source_filename",
+										"value": "$$FILEPATH"
+									}
+								],
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"preCopyScript": {
+									"value": "@if(\n    empty(pipeline().parameters.precopy_script), \n    '', \n    pipeline().parameters.precopy_script\n)",
+									"type": "Expression"
+								},
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_generic_binary_strgdataroleacademy_csv",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.source_container",
+										"type": "Expression"
+									},
+									"folder_path": {
+										"value": "@concat(pipeline().parameters.source_folder_path,'/',pipeline().parameters.source_folder_suffix)",
+										"type": "Expression"
+									},
+									"file_name": {
+										"value": "@concat(\n    pipeline().parameters.source_file_name,   \n    pipeline().parameters.source_file_suffix)  ",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_sql_db_dataroleacademy",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": {
+										"value": "@pipeline().parameters.schema_name",
+										"type": "Expression"
+									},
+									"table": {
+										"value": "@pipeline().parameters.table_name",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentRunId": {
+						"type": "int"
+					},
+					"source_container": {
+						"type": "string"
+					},
+					"source_folder_path": {
+						"type": "string"
+					},
+					"source_file_name": {
+						"type": "string"
+					},
+					"source_folder_suffix": {
+						"type": "string"
+					},
+					"source_file_suffix": {
+						"type": "string"
+					},
+					"schema_name": {
+						"type": "string"
+					},
+					"table_name": {
+						"type": "string"
+					},
+					"precopy_script": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "etl core/workers"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-03T22:11:19Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_generic_binary_strgdataroleacademy_csv')]",
+				"[concat(variables('factoryId'), '/datasets/ds_sql_db_dataroleacademy')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/02 - core_runner')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Switch_Route_By_Type",
+						"type": "Switch",
+						"dependsOn": [
+							{
+								"activity": "start_activity_log",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"on": {
+								"value": "@pipeline().parameters.AssetItem.type_name",
+								"type": "Expression"
+							},
+							"cases": [
+								{
+									"value": "adls_to_adls",
+									"activities": [
+										{
+											"name": "adls_to_adls",
+											"type": "ExecutePipeline",
+											"dependsOn": [],
+											"policy": {
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"pipeline": {
+													"referenceName": "adls_to_adls",
+													"type": "PipelineReference"
+												},
+												"waitOnCompletion": true,
+												"parameters": {
+													"ParentRunId": {
+														"value": "@pipeline().parameters.ParentRunId",
+														"type": "Expression"
+													},
+													"source_container": {
+														"value": "@concat(pipeline().parameters.AssetItem.source_container)",
+														"type": "Expression"
+													},
+													"source_folder_path": {
+														"value": "@pipeline().parameters.AssetItem.source_path",
+														"type": "Expression"
+													},
+													"source_file_name": {
+														"value": "@pipeline().parameters.AssetItem.file_name",
+														"type": "Expression"
+													},
+													"target_container": {
+														"value": "@pipeline().parameters.AssetItem.sink_container",
+														"type": "Expression"
+													},
+													"target_folder_path": {
+														"value": "@pipeline().parameters.AssetItem.sink_path",
+														"type": "Expression"
+													},
+													"target_file_name": {
+														"value": "@pipeline().parameters.AssetItem.file_name",
+														"type": "Expression"
+													},
+													"source_folder_suffix": {
+														"value": "@pipeline().parameters.SourceFolderSuffix",
+														"type": "Expression"
+													},
+													"source_file_suffix": {
+														"value": "@concat(pipeline().parameters.SourceFileSuffix,pipeline().parameters.AssetItem.file_type)",
+														"type": "Expression"
+													},
+													"target_folder_suffix": {
+														"value": "@concat(pipeline().parameters.TargetFolderSuffix,'/',pipeline().parameters.AssetItem.file_name)",
+														"type": "Expression"
+													},
+													"target_file_suffix": {
+														"value": "@pipeline().parameters.AssetItem.file_type",
+														"type": "Expression"
+													},
+													"storage_account": {
+														"value": "@pipeline().parameters.AssetItem.source_storage_account",
+														"type": "Expression"
+													}
+												}
+											}
+										},
+										{
+											"name": "Set variable2",
+											"type": "SetVariable",
+											"dependsOn": [
+												{
+													"activity": "adls_to_adls",
+													"dependencyConditions": [
+														"Failed"
+													]
+												}
+											],
+											"policy": {
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"variableName": "ErrMessage_adls_adls",
+												"value": {
+													"value": "@if(equals(activity('adls_to_adls').Error.Message, null), '', activity('adls_to_adls').Error.Message)\n\n",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"value": "adls_to_sql",
+									"activities": [
+										{
+											"name": "adls_to_sql",
+											"type": "ExecutePipeline",
+											"dependsOn": [],
+											"policy": {
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"pipeline": {
+													"referenceName": "adls_to_sql",
+													"type": "PipelineReference"
+												},
+												"waitOnCompletion": true,
+												"parameters": {
+													"ParentRunId": {
+														"value": "@pipeline().parameters.ParentRunId",
+														"type": "Expression"
+													},
+													"source_container": {
+														"value": "@pipeline().parameters.AssetItem.source_container",
+														"type": "Expression"
+													},
+													"source_folder_path": {
+														"value": "@pipeline().parameters.AssetItem.source_path",
+														"type": "Expression"
+													},
+													"source_file_name": {
+														"value": "@pipeline().parameters.AssetItem.file_name",
+														"type": "Expression"
+													},
+													"source_folder_suffix": {
+														"value": "@concat(pipeline().parameters.SourceFolderSuffix,'/',pipeline().parameters.AssetItem.file_name)",
+														"type": "Expression"
+													},
+													"source_file_suffix": {
+														"value": "@concat(pipeline().parameters.SourceFileSuffix,pipeline().parameters.AssetItem.file_type)",
+														"type": "Expression"
+													},
+													"schema_name": {
+														"value": "@pipeline().parameters.AssetItem.target_schema",
+														"type": "Expression"
+													},
+													"table_name": {
+														"value": "@pipeline().parameters.AssetItem.table_name",
+														"type": "Expression"
+													},
+													"precopy_script": {
+														"value": "@pipeline().parameters.AssetItem.pre_copy_script",
+														"type": "Expression"
+													}
+												}
+											}
+										},
+										{
+											"name": "Set variable3",
+											"type": "SetVariable",
+											"dependsOn": [
+												{
+													"activity": "adls_to_sql",
+													"dependencyConditions": [
+														"Failed"
+													]
+												}
+											],
+											"policy": {
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"variableName": "ErrMessage_adls_sql",
+												"value": {
+													"value": "@if(equals(activity('adls_to_sql').Error.Message, null), '', activity('adls_to_sql').Error.Message)\n\n",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"value": "process_dim_fact",
+									"activities": [
+										{
+											"name": "sql_dim_and_fact_usp",
+											"type": "ExecutePipeline",
+											"dependsOn": [],
+											"policy": {
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"pipeline": {
+													"referenceName": "sql_dim_and_fact_usp",
+													"type": "PipelineReference"
+												},
+												"waitOnCompletion": true,
+												"parameters": {
+													"ParentRunId": {
+														"value": "@pipeline().parameters.ParentRunId",
+														"type": "Expression"
+													},
+													"StoredProcedureName": {
+														"value": "@pipeline().parameters.AssetItem.stored_procedure",
+														"type": "Expression"
+													},
+													"Schema": {
+														"value": "@pipeline().parameters.AssetItem.target_schema",
+														"type": "Expression"
+													}
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "start_activity_log",
+						"type": "Script",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "ls_sql_dataroleacademy",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"parameters": [
+										{
+											"name": "BatchId",
+											"type": "Int64",
+											"value": {
+												"value": "@pipeline().parameters.ParentRunId",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "AssetName",
+											"type": "String",
+											"value": {
+												"value": "@pipeline().parameters.AssetItem.asset_name",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "ActivityName",
+											"type": "String",
+											"value": {
+												"value": "@pipeline().parameters.AssetItem.type_name",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "ActivityType",
+											"type": "String",
+											"value": "'core_runner'",
+											"direction": "Input"
+										}
+									],
+									"type": "Query",
+									"text": "DECLARE @ActivityId  BIGINT;\nEXEC olaniyi_metadata.usp_start_activity_run\n    @BatchId =     @BatchId,\n    @AssetName = @AssetName,\n    @ActivityName = @ActivityName,\n    @ActivityType =     @ActivityType,\n    @ActivityId = @ActivityId  OUTPUT;\n\nSELECT  @ActivityId  AS ActivityId "
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "end_activity_log",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "Switch_Route_By_Type",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "ls_sql_dataroleacademy",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"parameters": [
+										{
+											"name": "ActivityId",
+											"type": "Int64",
+											"value": {
+												"value": "@activity('start_activity_log').output.resultSets[0].rows[0].ActivityId",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "Status",
+											"type": "String",
+											"value": {
+												"value": "@activity('Switch_Route_By_Type').status",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "Metrics",
+											"type": "String",
+											"value": {
+												"value": "@concat(\n    '{\"filename\": \"',pipeline().parameters.AssetItem.file_name,pipeline().parameters.AssetItem.file_type, \n    '\", ',\n    '\"target_folder_path\": \"',pipeline().parameters.AssetItem.sink_container,'/',pipeline().parameters.AssetItem.sink_path,pipeline().parameters.TargetFolderSuffix,'/',pipeline().parameters.AssetItem.file_name,'/',pipeline().parameters.AssetItem.file_name,'\"/}')",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										},
+										{
+											"name": "ErrorMessage",
+											"type": "String",
+											"value": {
+												"value": "@variables('ErrMessage')",
+												"type": "Expression"
+											},
+											"direction": "Input"
+										}
+									],
+									"type": "Query",
+									"text": "\nEXEC olaniyi_metadata.usp_end_activity_run\n    @ActivityId = @ActivityId,\n    @Status=    @Status,\n    @Metrics = @Metrics,\n    @ErrorMessage = @ErrorMessage;"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Switch_Route_By_Type",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "ErrMessage",
+							"value": {
+								"value": "@if(\n    equals(\n        concat(\n            activity('Switch_Route_By_Type').Error.Message, variables('ErrMessage_adls_adls'),\n                variables('ErrMessage_adls_sql')\n                ), \n\n    null), '', concat(\n            activity('Switch_Route_By_Type').Error.Message,'.' ,variables('ErrMessage_adls_adls'),'.',\n                variables('ErrMessage_adls_sql')\n                )\n    )",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentRunId": {
+						"type": "int"
+					},
+					"AssetItem": {
+						"type": "object"
+					},
+					"SourceFolderSuffix": {
+						"type": "string"
+					},
+					"SourceFileSuffix": {
+						"type": "string"
+					},
+					"TargetFolderSuffix": {
+						"type": "string"
+					},
+					"TargetFileSuffix": {
+						"type": "string"
+					},
+					"precopy_script": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"ErrMessage": {
+						"type": "String"
+					},
+					"ErrMessage_adls_adls": {
+						"type": "String"
+					},
+					"ErrMessage_adls_sql": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "etl core"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-11T21:23:14Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]",
+				"[concat(variables('factoryId'), '/pipelines/adls_to_adls')]",
+				"[concat(variables('factoryId'), '/pipelines/adls_to_sql')]",
+				"[concat(variables('factoryId'), '/pipelines/sql_dim_and_fact_usp')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/01 - core_dispatcher')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get_Active_asset",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderStoredProcedureName": "[[olaniyi_config].[usp_get_assets_info]",
+								"storedProcedureParameters": {
+									"AssetName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().parameters.AssetName",
+											"type": "Expression"
+										}
+									},
+									"GroupName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().parameters.GroupName",
+											"type": "Expression"
+										}
+									},
+									"TypeName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().parameters.TypeName",
+											"type": "Expression"
+										}
+									}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ds_sql_db_dataroleacademy",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": {
+										"value": "''",
+										"type": "Expression"
+									},
+									"table": {
+										"value": "''",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get_Active_asset",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get_Active_asset').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 2,
+							"activities": [
+								{
+									"name": "Start_activity_log",
+									"type": "Script",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "ls_sql_dataroleacademy",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"parameters": [
+													{
+														"name": "BatchId",
+														"type": "Int64",
+														"value": {
+															"value": "@pipeline().parameters.ParentRunId",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "AssetName",
+														"type": "String",
+														"value": {
+															"value": "@item().asset_name",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "ActivityName",
+														"type": "String",
+														"value": {
+															"value": "@item().type_name",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "ActivityType",
+														"type": "String",
+														"value": "core_dispatcher",
+														"direction": "Input"
+													}
+												],
+												"type": "Query",
+												"text": "DECLARE @ActivityId AS BIGINT;\n\nEXEC olaniyi_metadata.usp_start_activity_run\n    @BatchId = @BatchId,\n    @AssetName = @AssetName,\n    @ActivityName = @ActivityName,\n    @ActivityType = @ActivityType,\n    @ActivityId = @ActivityId OUTPUT\n\nSELECT @ActivityId AS ActivityId"
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								},
+								{
+									"name": "End_activity_log",
+									"type": "Script",
+									"dependsOn": [
+										{
+											"activity": "02 - core_runner",
+											"dependencyConditions": [
+												"Completed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "ls_sql_dataroleacademy",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"parameters": [
+													{
+														"name": "ActivityId",
+														"type": "Int64",
+														"value": {
+															"value": "@activity('Start_activity_log').output.resultSets[0].rows[0].ActivityId",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "Metrics",
+														"type": "String",
+														"value": {
+															"value": "@concat('{\"asset_count\": ',\n    string(activity('Get_Active_asset').output.count)\n        ,'}')",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "Status",
+														"type": "String",
+														"value": {
+															"value": "@activity('02 - core_runner').status",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													},
+													{
+														"name": "ErrorMessage",
+														"type": "String",
+														"value": {
+															"value": "@variables('PipelineErrorMessage')",
+															"type": "Expression"
+														},
+														"direction": "Input"
+													}
+												],
+												"type": "Query",
+												"text": "EXEC olaniyi_metadata.usp_end_activity_run\n    @ActivityId = @ActivityId,\n    @Status = @Status,\n    @Metrics = @Metrics,      -- We can add row counts later if needed\n    @ErrorMessage = @ErrorMessage"
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								},
+								{
+									"name": "02 - core_runner",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "Start_activity_log",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "02 - core_runner",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"ParentRunId": {
+												"value": "@pipeline().parameters.ParentRunId",
+												"type": "Expression"
+											},
+											"AssetItem": {
+												"value": "@item()",
+												"type": "Expression"
+											},
+											"SourceFolderSuffix": {
+												"value": "@pipeline().parameters.SourceFolderSuffix",
+												"type": "Expression"
+											},
+											"SourceFileSuffix": {
+												"value": "@pipeline().parameters.SourceFileSuffix",
+												"type": "Expression"
+											},
+											"TargetFolderSuffix": {
+												"value": "@pipeline().parameters.TargetFolderSuffix",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "Set variable1",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "02 - core_runner",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "PipelineErrorMessage",
+										"value": {
+											"value": "@if(equals(activity('02 - core_runner').Error.Message, null), '', activity('02 - core_runner').Error.Message)\n\n\n",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentRunId": {
+						"type": "int"
+					},
+					"SourceFolderSuffix": {
+						"type": "string"
+					},
+					"TargetFolderSuffix": {
+						"type": "string"
+					},
+					"GroupName": {
+						"type": "string"
+					},
+					"AssetName": {
+						"type": "string"
+					},
+					"SourceFileSuffix": {
+						"type": "string"
+					},
+					"TypeName": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"PipelineErrorMessage": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "etl core"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-06T18:34:30Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_sql_db_dataroleacademy')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_sql_dataroleacademy')]",
+				"[concat(variables('factoryId'), '/pipelines/02 - core_runner')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/master_daily_Ihs_Analytics')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "start_load_job",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "start_load_job",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"GroupId": 6,
+								"ParentRunId": 1
+							}
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "start_load_job",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "BusinessDate",
+							"value": {
+								"value": "@formatDateTime(\n    addDays(convertFromUtc(utcNow(), 'Mountain Standard Time'), -1),\n    'yyyy-MM-dd'\n)",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Landing to Bronze",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Set variable1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "01 - core_dispatcher",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"ParentRunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								},
+								"SourceFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"TargetFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"GroupName": "LHSAnalytics_Bronze_Daily",
+								"SourceFileSuffix": {
+									"value": "@concat('_',variables('BusinessDate'))",
+									"type": "Expression"
+								},
+								"TypeName": "adls_to_adls"
+							}
+						}
+					},
+					{
+						"name": "end_load_job",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Landing to Bronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "end_load_job",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"RunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								}
+							}
+						}
+					}
+				],
+				"concurrency": 3,
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"BusinessDate": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "02 - LHS Analytics"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-11T20:24:33Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/start_load_job')]",
+				"[concat(variables('factoryId'), '/pipelines/01 - core_dispatcher')]",
+				"[concat(variables('factoryId'), '/pipelines/end_load_job')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/master_daily_smart_grid')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "start_load_job",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "start_load_job",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"GroupId": 1,
+								"ParentRunId": 1
+							}
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "start_load_job",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "BusinessDate",
+							"value": {
+								"value": "@formatDateTime(convertFromUtc(utcNow(), 'Mountain Standard Time'), 'yyyy-MM-dd')",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Landing to Bronze",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Set variable1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "01 - core_dispatcher",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"ParentRunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								},
+								"SourceFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"TargetFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"GroupName": "SmartGrid_Bronze_Daily",
+								"SourceFileSuffix": {
+									"value": "@concat('_',variables('BusinessDate'))",
+									"type": "Expression"
+								},
+								"TypeName": "adls_to_adls"
+							}
+						}
+					},
+					{
+						"name": "Bronze to SQL",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Landing to Bronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "01 - core_dispatcher",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"ParentRunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								},
+								"SourceFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"TargetFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"GroupName": "SmartGrid_Bronze_Staging_load_Daily",
+								"TypeName": "adls_to_sql"
+							}
+						}
+					},
+					{
+						"name": "end_load_job",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Staging_to_Dimension",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "end_load_job",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"RunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Staging_to_Dimension",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Bronze to SQL",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "01 - core_dispatcher",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"ParentRunId": {
+									"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+									"type": "Expression"
+								},
+								"SourceFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"TargetFolderSuffix": {
+									"value": "@variables('BusinessDate')",
+									"type": "Expression"
+								},
+								"GroupName": "SmartGrid_Procedure_Dimensions",
+								"TypeName": "process_dim_fact"
+							}
+						}
+					}
+				],
+				"concurrency": 3,
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"BusinessDate": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "01 - SmartGrid"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-03-04T00:06:11Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/start_load_job')]",
+				"[concat(variables('factoryId'), '/pipelines/01 - core_dispatcher')]",
+				"[concat(variables('factoryId'), '/pipelines/end_load_job')]"
+			]
+		}
+	]
+}

@@ -1,0 +1,125 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "olaniyiadfclassv1"
+		},
+		"ls_adls_smartgrid_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'ls_adls_smartgrid'"
+		},
+		"ls_adls_dynamic_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://@{linkedService().storageAccount}.dfs.core.windows.net"
+		},
+		"ls_adls_smartgrid_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://smartgriddata.dfs.core.windows.net/"
+		},
+		"ls_adls_strgdataroleacademy_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://strgdataroleacademy.dfs.core.windows.net/"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "dararoleacademy.database.windows.net"
+		},
+		"ls_sql_dataroleacademy_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "dataroleacademy"
+		},
+		"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_file_name": {
+			"type": "string",
+			"defaultValue": "@triggerBody().fileName"
+		},
+		"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_folder_path": {
+			"type": "string",
+			"defaultValue": "@triggerBody().folderPath"
+		},
+		"trigger_smart_hour_properties_typeProperties_scope": {
+			"type": "string",
+			"defaultValue": "/subscriptions/2dcb1819-6ea8-4613-9032-0503bdcab14f/resourceGroups/rg-smartmeter/providers/Microsoft.Storage/storageAccounts/smartgriddata"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "olaniyiadfclassv1_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"ls_adls_smartgrid_accountKey": {
+						"value": "[parameters('ls_adls_smartgrid_accountKey')]"
+					},
+					"ls_adls_dynamic_properties_typeProperties_url": {
+						"value": "[parameters('ls_adls_dynamic_properties_typeProperties_url')]"
+					},
+					"ls_adls_smartgrid_properties_typeProperties_url": {
+						"value": "[parameters('ls_adls_smartgrid_properties_typeProperties_url')]"
+					},
+					"ls_adls_strgdataroleacademy_properties_typeProperties_url": {
+						"value": "[parameters('ls_adls_strgdataroleacademy_properties_typeProperties_url')]"
+					},
+					"ls_sql_dataroleacademy_properties_typeProperties_server": {
+						"value": "[parameters('ls_sql_dataroleacademy_properties_typeProperties_server')]"
+					},
+					"ls_sql_dataroleacademy_properties_typeProperties_database": {
+						"value": "[parameters('ls_sql_dataroleacademy_properties_typeProperties_database')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "olaniyiadfclassv1_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_file_name": {
+						"value": "[parameters('trigger_smart_hour_properties_master_hourly_smart_grid_parameters_file_name')]"
+					},
+					"trigger_smart_hour_properties_master_hourly_smart_grid_parameters_folder_path": {
+						"value": "[parameters('trigger_smart_hour_properties_master_hourly_smart_grid_parameters_folder_path')]"
+					},
+					"trigger_smart_hour_properties_typeProperties_scope": {
+						"value": "[parameters('trigger_smart_hour_properties_typeProperties_scope')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'olaniyiadfclassv1_ArmTemplate_0')]"
+			]
+		}
+	]
+}
