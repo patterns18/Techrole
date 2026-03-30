@@ -1,0 +1,324 @@
+{
+	"name": "01 - core_dispatcher",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get_Active_asset",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[olaniyi_config].[usp_get_assets_info]",
+						"storedProcedureParameters": {
+							"AssetName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.AssetName",
+									"type": "Expression"
+								}
+							},
+							"GroupName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.GroupName",
+									"type": "Expression"
+								}
+							},
+							"TypeName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.TypeName",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_sql_db_dataroleacademy",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": {
+								"value": "''",
+								"type": "Expression"
+							},
+							"table": {
+								"value": "''",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_Active_asset",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Active_asset').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 2,
+					"activities": [
+						{
+							"name": "Start_activity_log",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_sql_dataroleacademy",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "BatchId",
+												"type": "Int64",
+												"value": {
+													"value": "@pipeline().parameters.ParentRunId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "AssetName",
+												"type": "String",
+												"value": {
+													"value": "@item().asset_name",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "ActivityName",
+												"type": "String",
+												"value": {
+													"value": "@item().type_name",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "ActivityType",
+												"type": "String",
+												"value": "core_dispatcher",
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "DECLARE @ActivityId AS BIGINT;\n\nEXEC olaniyi_metadata.usp_start_activity_run\n    @BatchId = @BatchId,\n    @AssetName = @AssetName,\n    @ActivityName = @ActivityName,\n    @ActivityType = @ActivityType,\n    @ActivityId = @ActivityId OUTPUT\n\nSELECT @ActivityId AS ActivityId"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "End_activity_log",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "02 - core_runner",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "ls_sql_dataroleacademy",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "ActivityId",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('Start_activity_log').output.resultSets[0].rows[0].ActivityId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "Metrics",
+												"type": "String",
+												"value": {
+													"value": "@concat('{\"asset_count\": ',\n    string(activity('Get_Active_asset').output.count)\n        ,'}')",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "Status",
+												"type": "String",
+												"value": {
+													"value": "@activity('02 - core_runner').status",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "ErrorMessage",
+												"type": "String",
+												"value": {
+													"value": "@variables('PipelineErrorMessage')",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXEC olaniyi_metadata.usp_end_activity_run\n    @ActivityId = @ActivityId,\n    @Status = @Status,\n    @Metrics = @Metrics,      -- We can add row counts later if needed\n    @ErrorMessage = @ErrorMessage"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "02 - core_runner",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Start_activity_log",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "02 - core_runner",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"ParentRunId": {
+										"value": "@pipeline().parameters.ParentRunId",
+										"type": "Expression"
+									},
+									"AssetItem": {
+										"value": "@item()",
+										"type": "Expression"
+									},
+									"SourceFolderSuffix": {
+										"value": "@pipeline().parameters.SourceFolderSuffix",
+										"type": "Expression"
+									},
+									"SourceFileSuffix": {
+										"value": "@pipeline().parameters.SourceFileSuffix",
+										"type": "Expression"
+									},
+									"TargetFolderSuffix": {
+										"value": "@pipeline().parameters.TargetFolderSuffix",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Set variable1",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "02 - core_runner",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PipelineErrorMessage",
+								"value": {
+									"value": "@if(equals(activity('02 - core_runner').Error.Message, null), '', activity('02 - core_runner').Error.Message)\n\n\n",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ParentRunId": {
+				"type": "int"
+			},
+			"SourceFolderSuffix": {
+				"type": "string"
+			},
+			"TargetFolderSuffix": {
+				"type": "string"
+			},
+			"GroupName": {
+				"type": "string"
+			},
+			"AssetName": {
+				"type": "string"
+			},
+			"SourceFileSuffix": {
+				"type": "string"
+			},
+			"TypeName": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"PipelineErrorMessage": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "etl core"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-03-06T18:34:30Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

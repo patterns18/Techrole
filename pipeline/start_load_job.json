@@ -1,0 +1,124 @@
+{
+	"name": "start_load_job",
+	"properties": {
+		"activities": [
+			{
+				"name": "Exec usp_start_pipeline_run",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_sql_dataroleacademy",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "PipelineName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								},
+								{
+									"name": "FactoryRunId",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								},
+								{
+									"name": "FactoryName",
+									"type": "String",
+									"value": {
+										"value": "@pipeline().DataFactory",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								},
+								{
+									"name": "GroupId",
+									"type": "Int16",
+									"value": {
+										"value": "@if(equals(pipeline().parameters.GroupId, 0), json('null'),\n    pipeline().parameters.GroupId)",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								},
+								{
+									"name": "ParentRunId",
+									"type": "Int64",
+									"value": {
+										"value": "@if(equals(pipeline().parameters.ParentRunId, 0), json('null'),\n    pipeline().parameters.ParentRunId)",
+										"type": "Expression"
+									},
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "DECLARE @NewRunId BIGINT;\n\nEXEC olaniyi_metadata.usp_start_pipeline_run\n\n    @PipelineName =  @PipelineName,\n    @FactoryRunId =  @FactoryRunId,\n    @FactoryName = @FactoryName,\n    @GroupId = @GroupId,\n    @ParentRunId = @ParentRunId,\n    @RunId = @NewRunId OUTPUT;\n\nselect @NewRunId  as RunId  \n"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Exec usp_start_pipeline_run",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "pipelineReturnValue",
+					"value": [
+						{
+							"key": "ReturnRunId",
+							"value": {
+								"type": "Expression",
+								"content": "@activity('Exec usp_start_pipeline_run').output.resultSets[0].rows[0].RunId\n\n"
+							}
+						}
+					],
+					"setSystemVariable": true
+				}
+			}
+		],
+		"parameters": {
+			"GroupId": {
+				"type": "int"
+			},
+			"ParentRunId": {
+				"type": "int"
+			}
+		},
+		"folder": {
+			"name": "etl core/workers"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-02-24T18:09:39Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,204 @@
+{
+	"name": "master_daily_smart_grid",
+	"properties": {
+		"activities": [
+			{
+				"name": "start_load_job",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "start_load_job",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"GroupId": 1,
+						"ParentRunId": 1
+					}
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "start_load_job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "BusinessDate",
+					"value": {
+						"value": "@formatDateTime(convertFromUtc(utcNow(), 'Mountain Standard Time'), 'yyyy-MM-dd')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Landing to Bronze",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "01 - core_dispatcher",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"ParentRunId": {
+							"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+							"type": "Expression"
+						},
+						"SourceFolderSuffix": {
+							"value": "@variables('BusinessDate')",
+							"type": "Expression"
+						},
+						"TargetFolderSuffix": {
+							"value": "@variables('BusinessDate')",
+							"type": "Expression"
+						},
+						"GroupName": "SmartGrid_Bronze_Daily",
+						"SourceFileSuffix": {
+							"value": "@concat('_',variables('BusinessDate'))",
+							"type": "Expression"
+						},
+						"TypeName": "adls_to_adls"
+					}
+				}
+			},
+			{
+				"name": "Bronze to SQL",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Landing to Bronze",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "01 - core_dispatcher",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"ParentRunId": {
+							"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+							"type": "Expression"
+						},
+						"SourceFolderSuffix": {
+							"value": "@variables('BusinessDate')",
+							"type": "Expression"
+						},
+						"TargetFolderSuffix": {
+							"value": "@variables('BusinessDate')",
+							"type": "Expression"
+						},
+						"GroupName": "SmartGrid_Bronze_Staging_load_Daily",
+						"TypeName": "adls_to_sql"
+					}
+				}
+			},
+			{
+				"name": "end_load_job",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Staging_to_Dimension",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "end_load_job",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"RunId": {
+							"value": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Staging_to_Dimension",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Bronze to SQL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "01 - core_dispatcher",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"ParentRunId": "@activity('start_load_job').output.pipelineReturnValue.ReturnRunId",
+						"SourceFolderSuffix": "@variables('BusinessDate')",
+						"TargetFolderSuffix": "@variables('BusinessDate')",
+						"GroupName": "SmartGrid_Procedure_Dimensions",
+						"TypeName": "process_dim_fact"
+					}
+				}
+			}
+		],
+		"concurrency": 3,
+		"variables": {
+			"BusinessDate": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "01 - SmartGrid"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-03-04T00:06:11Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

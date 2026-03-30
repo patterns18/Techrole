@@ -1,0 +1,9 @@
+{
+	"name": "olaniyiadfclassv1",
+	"location": "canadacentral",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "ac85981b-4926-4182-8f14-36985240fed6",
+		"tenantId": "a7c58d37-1d06-4472-a5e7-7c725497b4be"
+	}
+}

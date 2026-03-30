@@ -1,0 +1,16 @@
+{
+	"name": "ls_adls_dynamic",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"storageAccount": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://@{linkedService().storageAccount}.dfs.core.windows.net"
+		}
+	}
+}
