@@ -216,9 +216,18 @@
 										},
 										"waitOnCompletion": true,
 										"parameters": {
-											"ParentRunId": "@pipeline().parameters.ParentRunId",
-											"StoredProcedureName": "@pipeline().parameters.AssetItem.stored_procedure",
-											"Schema": "@pipeline().parameters.AssetItem.target_schema"
+											"ParentRunId": {
+												"value": "@pipeline().parameters.ParentRunId",
+												"type": "Expression"
+											},
+											"StoredProcedureName": {
+												"value": "@pipeline().parameters.AssetItem.stored_procedure",
+												"type": "Expression"
+											},
+											"Schema": {
+												"value": "@pipeline().parameters.AssetItem.target_schema",
+												"type": "Expression"
+											}
 										}
 									}
 								}
